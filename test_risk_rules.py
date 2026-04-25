@@ -17,6 +17,13 @@ def test_label_risk_thresholds():
     assert label_risk(75) == "high"
 
 
+def test_label_risk_exact_boundaries():
+    assert label_risk(29) == "low"
+    assert label_risk(30) == "medium"
+    assert label_risk(59) == "medium"
+    assert label_risk(60) == "high"
+
+
 def test_large_amount_adds_risk():
     tx = {**BASE_TX, "amount_usd": 1200}
     assert score_transaction(tx) >= 25
@@ -59,3 +66,41 @@ def test_high_risk_transaction_scores_high():
         "prior_chargebacks": 2,
     }
     assert label_risk(score_transaction(tx)) == "high"
+
+
+def test_score_capped_at_100():
+    tx = {
+        "device_risk_score": 90,
+        "is_international": 1,
+        "amount_usd": 2000,
+        "velocity_24h": 10,
+        "failed_logins_24h": 8,
+        "prior_chargebacks": 3,
+    }
+    assert score_transaction(tx) == 100
+
+
+def test_score_floor_is_zero():
+    assert score_transaction({**BASE_TX}) >= 0
+
+
+def test_medium_device_risk_adds_points():
+    no_device_risk = score_transaction({**BASE_TX, "device_risk_score": 10})
+    medium_device = score_transaction({**BASE_TX, "device_risk_score": 50})
+    assert medium_device == no_device_risk + 10
+
+
+def test_medium_velocity_adds_points():
+    low_vel = score_transaction({**BASE_TX, "velocity_24h": 1})
+    medium_vel = score_transaction({**BASE_TX, "velocity_24h": 4})
+    assert medium_vel == low_vel + 5
+
+
+def test_medium_amount_adds_points():
+    small = score_transaction({**BASE_TX, "amount_usd": 100})
+    medium_amt = score_transaction({**BASE_TX, "amount_usd": 600})
+    assert medium_amt == small + 10
+
+
+def test_low_risk_transaction_scores_low():
+    assert label_risk(score_transaction(BASE_TX)) == "low"
